@@ -8,6 +8,7 @@
 import SwiftUI
 import AppKit
 import CoreGraphics
+import IOKit
 import os
 
 // MARK: - Private CoreGraphics API
@@ -101,6 +102,30 @@ final class DisplayManager {
                 self?.refresh()
             }
         }
+
+        Task { [weak self] in
+            // Plugging in or unplugging a display that is disabled produces no reconfiguration event,
+            // so also check whenever GoDark is brought to the front...
+            for await _ in NotificationCenter.default.notifications(
+                named: NSApplication.didBecomeActiveNotification
+            ) {
+                self?.refresh()
+            }
+        }
+
+        Task { [weak self] in
+            // ...and poll IOKit, which is cheap, refreshing when the attached monitors change.
+            var attached = Self.attachedMonitors()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self else { return }
+                let current = Self.attachedMonitors()
+                guard current != attached else { continue }
+                attached = current
+                Self.log.info("Attached monitors changed: \(current?.map(\.description) ?? [], privacy: .public)")
+                refresh()
+            }
+        }
     }
 
     // MARK: Detection
@@ -123,10 +148,18 @@ final class DisplayManager {
         let active = Set(Self.displayIDs(.active))
         updateWatchdog(builtInIsOff: builtInID.map { !active.contains($0) } ?? false)
 
+        // `CGSGetDisplayList` also keeps reporting displays that were unplugged, and the placeholder
+        // macOS adds when the last monitor goes. CoreGraphics can't tell those from disabled displays,
+        // so only list an inactive display if IOKit says it is still physically attached.
+        let attached = Self.attachedMonitors()
         displays = Self.displayIDs(.all)
+            .filter { id in
+                active.contains(id) || CGDisplayIsBuiltin(id) != 0
+                    || attached?.contains { $0.matches(id) } ?? (CGDisplayVendorNumber(id) != 0)
+            }
             .map { id in
                 let isBuiltIn = CGDisplayIsBuiltin(id) != 0
-                if let name = Self.screenName(for: id), knownNames[id] != name { knownNames[id] = name }
+                if let name = Self.screenName(for: id), !name.isEmpty, knownNames[id] != name { knownNames[id] = name }
                 return ManagedDisplay(
                     id: id,
                     name: knownNames[id] ?? (isBuiltIn ? "Built-in Display" : "External Display \(id)"),
@@ -217,6 +250,51 @@ final class DisplayManager {
         var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
         guard query(count, &ids, &count) == .success else { return [] }
         return Array(ids.prefix(Int(count)))
+    }
+
+    private struct AttachedMonitor: Equatable, CustomStringConvertible {
+        let vendor: UInt32
+        let model: UInt32
+        let serial: UInt32
+
+        var description: String { "\(vendor)/\(model)/\(serial)" }
+
+        func matches(_ id: CGDirectDisplayID) -> Bool {
+            let idSerial = CGDisplaySerialNumber(id)
+            return vendor == CGDisplayVendorNumber(id) && model == CGDisplayModelNumber(id)
+                && (serial == 0 || idSerial == 0 || serial == idSerial)
+        }
+    }
+
+    /// Monitors physically attached to the Mac's display ports, whether or not they are enabled,
+    /// read from the `DisplayAttributes` IOKit publishes for each Apple silicon framebuffer.
+    /// `nil` if there are no such framebuffers to read (e.g. on an Intel Mac).
+    private static func attachedMonitors() -> [AttachedMonitor]? {
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(
+            kIOMainPortDefault, IOServiceMatching("IOMobileFramebufferShim"), &iterator
+        ) == KERN_SUCCESS else { return nil }
+        defer { IOObjectRelease(iterator) }
+
+        var foundFramebuffer = false
+        var monitors: [AttachedMonitor] = []
+        while case let service = IOIteratorNext(iterator), service != 0 {
+            defer { IOObjectRelease(service) }
+            foundFramebuffer = true
+            guard
+                let attributes = IORegistryEntryCreateCFProperty(
+                    service, "DisplayAttributes" as CFString, kCFAllocatorDefault, 0
+                )?.takeRetainedValue() as? [String: Any],
+                let product = attributes["ProductAttributes"] as? [String: Any]
+            else { continue }
+            func number(_ key: String) -> UInt32 { (product[key] as? NSNumber)?.uint32Value ?? 0 }
+            monitors.append(AttachedMonitor(
+                vendor: number("LegacyManufacturerID"),
+                model: number("ProductID"),
+                serial: number("SerialNumber")
+            ))
+        }
+        return foundFramebuffer ? monitors : nil
     }
 
     private static func screenName(for id: CGDirectDisplayID) -> String? {

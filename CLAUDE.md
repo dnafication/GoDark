@@ -35,6 +35,10 @@ Disabled displays are missing from the public lists, so `DisplayManager.displayI
 
 Disabling a display through this API looks to WindowServer like unplugging it (a hotplug "out").
 
+`.all` also keeps reporting displays that were unplugged, and the placeholder macOS adds when the last monitor goes. CoreGraphics can't tell these apart from disabled displays (both are offline with 1×1 bounds). So an inactive external display is listed only if IOKit says it is physically attached: `attachedMonitors()` reads the `DisplayAttributes` of each `IOMobileFramebufferShim` (Apple silicon), which stay present while a connected display is disabled, and matches vendor, model and serial against CoreGraphics. Where there are no such framebuffers (Intel), any inactive display with a vendor number is listed. The built-in display is always listed.
+
+A display that is still disabled for the session stays disabled when it's unplugged and plugged back in, and neither plugging it in nor unplugging it produces a reconfiguration event. So `refresh()` also runs on `NSApplication.didBecomeActiveNotification`, and a task polls `attachedMonitors()` every 2 seconds and refreshes when the result changes.
+
 Disabled displays also disappear from `NSScreen`, so display names are cached in `UserDefaults` (`knownDisplayNames`). Rows are sorted built-in first, then by ID, because macOS reorders IDs and changes names after a reconfiguration.
 
 ### Built-in display safety net

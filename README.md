@@ -45,6 +45,8 @@ Then press **⌘R** in Xcode, or build from the command line:
 xcodebuild -project GoDark.xcodeproj -scheme GoDark build
 ```
 
+See the [developer guide](docs/DEVELOPMENT.md) for building, running and relaunching from the terminal.
+
 ## Install on other Macs
 
 See [Distributing GoDark](#distributing-godark) below for creating a `.app` or `.dmg`.
