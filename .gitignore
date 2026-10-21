@@ -2,3 +2,7 @@ build/
 *.dmg
 xcuserdata/
 .DS_Store
+*.xcuserstate
+DerivedData/
+.build/
+*.xcarchive

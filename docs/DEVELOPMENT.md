@@ -15,7 +15,7 @@ xcodebuild -project GoDark.xcodeproj -scheme GoDark -configuration Release \
   -derivedDataPath build build
 ```
 
-The app is written to `build/Build/Products/Release/GoDark.app` (`build/` is git-ignored). Signing uses the team set in the project, which is enough to run it on your own Mac.
+The app is written to `build/Build/Products/Release/GoDark.app` (`build/` is git-ignored). The project has the maintainer's signing team set. Choose your own under **Signing & Capabilities** in Xcode (without committing the change), or build unsigned with `CODE_SIGNING_ALLOWED=NO`.
 
 Without `-derivedDataPath`, a plain `xcodebuild -project GoDark.xcodeproj -scheme GoDark build` makes a Debug build in Xcode's DerivedData folder. To open that one:
 

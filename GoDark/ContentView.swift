@@ -122,7 +122,7 @@ final class DisplayManager {
                 let current = Self.attachedMonitors()
                 guard current != attached else { continue }
                 attached = current
-                Self.log.info("Attached monitors changed: \(current?.map(\.description) ?? [], privacy: .public)")
+                Self.log.info("Attached monitors changed: \(current?.count ?? -1, privacy: .public) attached")
                 refresh()
             }
         }

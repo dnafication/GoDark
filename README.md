@@ -34,7 +34,7 @@ GoDark won't let you turn off your last active display.
 ## Build from source
 
 ```sh
-git clone <this-repo>
+git clone https://github.com/dnafication/GoDark.git
 cd GoDark
 open GoDark.xcodeproj
 ```
@@ -45,7 +45,15 @@ Then press **⌘R** in Xcode, or build from the command line:
 xcodebuild -project GoDark.xcodeproj -scheme GoDark build
 ```
 
-See the [developer guide](docs/DEVELOPMENT.md) for building, running and relaunching from the terminal.
+Signing uses the team set in the project, so choose your own under **Signing & Capabilities**. See the [developer guide](docs/DEVELOPMENT.md) for building, running and relaunching from the terminal.
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first, especially the notes on the built-in display safety net. Report security problems as described in [SECURITY.md](SECURITY.md).
+
+## Licence
+
+GoDark is released under the [MIT licence](LICENSE).
 
 ## Install on other Macs
 
@@ -132,7 +140,7 @@ If you exported with Direct Distribution, the app inside is already notarized. T
 ```sh
 # One-time setup: save your credentials in the keychain
 xcrun notarytool store-credentials GoDark --apple-id you@example.com \
-  --team-id H8LSKPQPYN --password <app-specific-password>
+  --team-id <TEAM_ID> --password <app-specific-password>
 
 codesign --sign "Developer ID Application" --timestamp GoDark.dmg
 xcrun notarytool submit GoDark.dmg --keychain-profile GoDark --wait
