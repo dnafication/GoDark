@@ -7,9 +7,12 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # The project uses Xcode 27's project format, which Xcode 26 can't open.
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_27.1.app/Contents/Developer
       - name: Build
         run: >
           xcodebuild -project GoDark.xcodeproj -scheme GoDark build
