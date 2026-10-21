@@ -1,0 +1,60 @@
+name: Release
+
+# Push a tag such as v1.0.0 to build GoDark and publish a DMG on GitHub Releases.
+# Run it by hand (Actions tab) to build a DMG as a workflow artifact without releasing.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # The project uses Xcode 27's project format, which Xcode 26 can't open.
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_27.1.app/Contents/Developer
+
+      - name: Work out the version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
+          fi
+
+      # Ad-hoc signed (no Developer ID), so users must allow it on first launch.
+      - name: Build universal app
+        run: >
+          xcodebuild -project GoDark.xcodeproj -scheme GoDark -configuration Release
+          -derivedDataPath build ONLY_ACTIVE_ARCH=NO
+          CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=
+          MARKETING_VERSION="${VERSION%%-*}" build
+
+      - name: Create DMG
+        run: |
+          mkdir dmg
+          cp -R build/Build/Products/Release/GoDark.app dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "GoDark" -srcfolder dmg -ov -format UDZO "GoDark-${VERSION}.dmg"
+          shasum -a 256 "GoDark-${VERSION}.dmg" | tee "GoDark-${VERSION}.dmg.sha256"
+
+      - name: Upload artifact
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v7
+        with:
+          name: GoDark-dmg
+          path: GoDark-*.dmg*
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" GoDark-*.dmg GoDark-*.dmg.sha256
+          --title "GoDark ${VERSION}" --generate-notes

@@ -31,6 +31,10 @@
 
 GoDark won't let you turn off your last active display.
 
+## Download
+
+Grab the latest `GoDark-<version>.dmg` from the [Releases page](https://github.com/dnafication/GoDark/releases), open it and drag GoDark to Applications. Releases are not notarised, so macOS blocks the first launch. See [First launch on another Mac](#first-launch-on-another-mac).
+
 ## Build from source
 
 ```sh
@@ -92,6 +96,8 @@ python3 scripts/make_icon.py
 The script writes every required size into `GoDark/Assets.xcassets/AppIcon.appiconset` and a preview to `docs/icon.png`.
 
 ## Distributing GoDark
+
+Maintainers: pushing a tag like `v1.0.0` runs the [Release workflow](.github/workflows/release.yml), which builds an ad-hoc signed universal DMG and attaches it to a GitHub release. The options below are for signing and notarising it yourself.
 
 ### Option 1: Export a signed `.app` from Xcode (recommended)
 
