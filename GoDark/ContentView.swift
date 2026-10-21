@@ -8,6 +8,7 @@
 import SwiftUI
 import AppKit
 import CoreGraphics
+import os
 
 // MARK: - Private CoreGraphics API
 
@@ -78,15 +79,17 @@ final class DisplayManager {
         // NSScreen notifications aren't reliable once no screen is left, so also listen at the
         // CoreGraphics level, which reports every hot-unplug. The manager lives for the whole app,
         // so an unretained reference is safe.
-        let callbackResult = CGDisplayRegisterReconfigurationCallback({ _, flags, userInfo in
+        let callbackResult = CGDisplayRegisterReconfigurationCallback({ display, flags, userInfo in
             guard !flags.contains(.beginConfigurationFlag), let userInfo else { return }
+            DisplayManager.log.info("Reconfigured display \(display, privacy: .public), flags \(flags.rawValue, privacy: .public)")
             let address = Int(bitPattern: userInfo)
             Task { @MainActor in
                 guard let pointer = UnsafeMutableRawPointer(bitPattern: address) else { return }
-                Unmanaged<DisplayManager>.fromOpaque(pointer).takeUnretainedValue().displaysDidReconfigure()
+                Unmanaged<DisplayManager>.fromOpaque(pointer).takeUnretainedValue().refresh()
             }
         }, Unmanaged.passUnretained(self).toOpaque())
         if callbackResult != .success {
+            Self.log.error("Couldn't register reconfiguration callback: \(callbackResult.rawValue, privacy: .public)")
             errorMessage = DisplayError.coreGraphics(callbackResult).localizedDescription
         }
 
@@ -102,33 +105,23 @@ final class DisplayManager {
 
     // MARK: Detection
 
-    /// Called for every completed CoreGraphics display change, including unplugging a monitor.
-    private func displaysDidReconfigure() {
-        refresh()
-        recheckTask?.cancel()
-        recheckTask = Task { [weak self] in
-            // Right after an unplug the active list can still include the removed monitor,
-            // so check again once the system has settled.
-            for delay in [Duration.seconds(1), .seconds(3)] {
-                try? await Task.sleep(for: delay)
-                guard !Task.isCancelled else { return }
-                self?.refresh()
-            }
-        }
-    }
+    nonisolated static let log = Logger(subsystem: "com.dnafication.GoDark", category: "displays")
 
-    private var recheckTask: Task<Void, Never>?
+    /// Remembered in case the built-in display drops out of every list while it is disabled.
+    private var builtInID: CGDirectDisplayID?
+
+    /// Polls while the built-in display is off, in case a change notification is missed.
+    private var watchdogTask: Task<Void, Never>?
+    /// Keeps App Nap from throttling the watchdog while the window is hidden.
+    private var watchdogActivity: NSObjectProtocol?
 
     func refresh() {
-        // Safety net: if every display ends up off (e.g. the last external monitor was unplugged
-        // while the built-in display was disabled), turn the built-in display back on.
-        if Self.displayIDs(.active).isEmpty {
-            restoreBuiltInDisplay()
-        }
+        restoreBuiltInIfStranded()
 
         // macOS omits disabled displays from the public active and online lists.
         // `CGSGetDisplayList` still reports them, so use it to find displays that can be switched back on.
         let active = Set(Self.displayIDs(.active))
+        updateWatchdog(builtInIsOff: builtInID.map { !active.contains($0) } ?? false)
 
         displays = Self.displayIDs(.all)
             .map { id in
@@ -144,6 +137,66 @@ final class DisplayManager {
             // A fixed order: macOS returns IDs in varying order after a reconfiguration, and names
             // change when a display is toggled, so neither can be used to keep rows from jumping.
             .sorted { ($0.isBuiltIn ? 0 : 1, $0.id) < ($1.isBuiltIn ? 0 : 1, $1.id) }
+    }
+
+    /// The external displays that were active when the built-in display was turned off.
+    /// `nil` while the built-in display is on.
+    private var externalsWhileBuiltInOff: Set<CGDirectDisplayID>?
+
+    /// Safety net: if the built-in display is off and every external display that was active
+    /// when it was turned off has gone (e.g. the last monitor was unplugged), turn it back on.
+    ///
+    /// This can't simply check whether any display is still active or online: when the last real
+    /// monitor goes away, macOS inserts an active placeholder display (seen as a 1920×1080 display
+    /// with a new ID), so the Mac never looks screenless.
+    private func restoreBuiltInIfStranded() {
+        if let id = Self.displayIDs(.all).first(where: { CGDisplayIsBuiltin($0) != 0 }) {
+            builtInID = id
+        }
+        guard let builtIn = builtInID else { return }
+
+        let active = Set(Self.displayIDs(.active))
+        guard !active.contains(builtIn) else {
+            externalsWhileBuiltInOff = nil
+            return
+        }
+
+        guard let externals = externalsWhileBuiltInOff else {
+            // First time we see the built-in display off: remember which monitors are in use.
+            externalsWhileBuiltInOff = active
+            Self.log.notice("Built-in display \(builtIn, privacy: .public) is off; watching displays \(active.sorted(), privacy: .public)")
+            if active.isEmpty { enableBuiltInDisplay(builtIn) }
+            return
+        }
+
+        let remaining = externals.intersection(active)
+        guard remaining.isEmpty else { return }
+
+        Self.log.notice("Displays \(externals.sorted(), privacy: .public) are gone (active: \(active.sorted(), privacy: .public)); turning built-in display \(builtIn, privacy: .public) back on")
+        enableBuiltInDisplay(builtIn)
+    }
+
+    /// Runs `refresh()` every couple of seconds while the built-in display is off.
+    private func updateWatchdog(builtInIsOff: Bool) {
+        if builtInIsOff, watchdogTask == nil {
+            watchdogActivity = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep,
+                reason: "Turning the built-in display back on if the last external display is unplugged"
+            )
+            watchdogTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(2))
+                    self?.refresh()
+                }
+            }
+        } else if !builtInIsOff, let task = watchdogTask {
+            task.cancel()
+            watchdogTask = nil
+            if let activity = watchdogActivity {
+                ProcessInfo.processInfo.endActivity(activity)
+                watchdogActivity = nil
+            }
+        }
     }
 
     private enum DisplayList {
@@ -192,10 +245,15 @@ final class DisplayManager {
     /// Turns the built-in display back on if it is off. Used when no other display is active,
     /// and when the app quits so the Mac is never left without a screen and nothing to fix it.
     func restoreBuiltInDisplay() {
-        let active = Set(Self.displayIDs(.active))
-        guard let builtIn = Self.displayIDs(.all).first(where: { CGDisplayIsBuiltin($0) != 0 }),
-              !active.contains(builtIn) else { return }
-        if let error = Self.apply(enabled: true, to: builtIn) {
+        let builtIn = Self.displayIDs(.all).first(where: { CGDisplayIsBuiltin($0) != 0 }) ?? builtInID
+        guard let builtIn, !Self.displayIDs(.active).contains(builtIn) else { return }
+        Self.log.notice("Turning built-in display \(builtIn, privacy: .public) back on before quitting")
+        enableBuiltInDisplay(builtIn)
+    }
+
+    private func enableBuiltInDisplay(_ id: CGDirectDisplayID) {
+        if let error = Self.apply(enabled: true, to: id) {
+            Self.log.error("Couldn't turn on built-in display: \(error.localizedDescription, privacy: .public)")
             errorMessage = error.localizedDescription
         }
     }
