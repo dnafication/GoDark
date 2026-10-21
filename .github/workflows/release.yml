@@ -41,7 +41,7 @@ jobs:
           mkdir dmg
           cp -R build/Build/Products/Release/GoDark.app dmg/
           ln -s /Applications dmg/Applications
-          hdiutil create -volname "GoDark" -srcfolder dmg -ov -format UDZO "GoDark-${VERSION}.dmg"
+          diskutil image create from --format UDZO --volumeName GoDark dmg "GoDark-${VERSION}.dmg"
           shasum -a 256 "GoDark-${VERSION}.dmg" | tee "GoDark-${VERSION}.dmg.sha256"
 
       - name: Upload artifact
