@@ -41,7 +41,10 @@ jobs:
           mkdir dmg
           cp -R build/Build/Products/Release/GoDark.app dmg/
           ln -s /Applications dmg/Applications
-          diskutil image create from --format UDZO --volumeName GoDark dmg "GoDark-${VERSION}.dmg"
+          # Build without attaching a disk: hdiutil create and diskutil image create both fail on the runner.
+          hdiutil makehybrid -hfs -hfs-volume-name GoDark -ov -o GoDark-raw.dmg dmg
+          hdiutil convert GoDark-raw.dmg -format UDZO -ov -o "GoDark-${VERSION}.dmg"
+          rm GoDark-raw.dmg
           shasum -a 256 "GoDark-${VERSION}.dmg" | tee "GoDark-${VERSION}.dmg.sha256"
 
       - name: Upload artifact
