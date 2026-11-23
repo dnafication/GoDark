@@ -94,6 +94,20 @@ final class DisplayManager {
             errorMessage = DisplayError.coreGraphics(callbackResult).localizedDescription
         }
 
+        let workspaceNotifications = NSWorkspace.shared.notificationCenter
+        for (name, reason, isAsleep) in [
+            (NSWorkspace.willSleepNotification, SleepReason.system, true),
+            (NSWorkspace.didWakeNotification, SleepReason.system, false),
+            (NSWorkspace.screensDidSleepNotification, SleepReason.screens, true),
+            (NSWorkspace.screensDidWakeNotification, SleepReason.screens, false)
+        ] {
+            workspaceNotifications.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.sleepChanged(reason, isAsleep: isAsleep)
+                }
+            }
+        }
+
         Task { [weak self] in
             // Fires on hot-plug and after our own reconfigurations.
             for await _ in NotificationCenter.default.notifications(
@@ -140,6 +154,35 @@ final class DisplayManager {
     /// Keeps App Nap from throttling the watchdog while the window is hidden.
     private var watchdogActivity: NSObjectProtocol?
 
+    private enum SleepReason: Hashable {
+        case system, screens
+    }
+
+    private var sleepingReasons: Set<SleepReason> = []
+    private var wakeTask: Task<Void, Never>?
+
+    private func sleepChanged(_ reason: SleepReason, isAsleep: Bool) {
+        wakeTask?.cancel()
+        wakeTask = nil
+        if isAsleep {
+            sleepingReasons.insert(reason)
+        } else {
+            sleepingReasons.remove(reason)
+            guard sleepingReasons.isEmpty else { return }
+            // WindowServer can briefly report missing displays while it rebuilds the configuration.
+            wakeTask = Task { [weak self] in
+                do {
+                    try await Task.sleep(for: .seconds(5))
+                } catch {
+                    return
+                }
+                guard let self else { return }
+                wakeTask = nil
+                refresh()
+            }
+        }
+    }
+
     func refresh() {
         restoreBuiltInIfStranded()
 
@@ -183,6 +226,7 @@ final class DisplayManager {
     /// monitor goes away, macOS inserts an active placeholder display (seen as a 1920×1080 display
     /// with a new ID), so the Mac never looks screenless.
     private func restoreBuiltInIfStranded() {
+        guard sleepingReasons.isEmpty, wakeTask == nil else { return }
         if let id = Self.displayIDs(.all).first(where: { CGDisplayIsBuiltin($0) != 0 }) {
             builtInID = id
         }
