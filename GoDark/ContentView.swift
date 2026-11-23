@@ -160,10 +160,13 @@ final class DisplayManager {
 
     private var sleepingReasons: Set<SleepReason> = []
     private var wakeTask: Task<Void, Never>?
+    private var displayLossTask: Task<Void, Never>?
+    private var displayLossConfirmed = false
 
     private func sleepChanged(_ reason: SleepReason, isAsleep: Bool) {
         wakeTask?.cancel()
         wakeTask = nil
+        resetDisplayLoss()
         if isAsleep {
             sleepingReasons.insert(reason)
         } else {
@@ -235,22 +238,49 @@ final class DisplayManager {
         let active = Set(Self.displayIDs(.active))
         guard !active.contains(builtIn) else {
             externalsWhileBuiltInOff = nil
+            resetDisplayLoss()
             return
         }
 
-        guard let externals = externalsWhileBuiltInOff else {
+        if externalsWhileBuiltInOff == nil {
             // First time we see the built-in display off: remember which monitors are in use.
             externalsWhileBuiltInOff = active
             Self.log.notice("Built-in display \(builtIn, privacy: .public) is off; watching displays \(active.sorted(), privacy: .public)")
-            if active.isEmpty { enableBuiltInDisplay(builtIn) }
+        }
+
+        guard let externals = externalsWhileBuiltInOff else { return }
+        let remaining = externals.intersection(active)
+        guard remaining.isEmpty else {
+            resetDisplayLoss()
             return
         }
 
-        let remaining = externals.intersection(active)
-        guard remaining.isEmpty else { return }
+        guard displayLossConfirmed else {
+            // Screen-sleep notification can arrive after the display reconfiguration callback.
+            if displayLossTask == nil {
+                displayLossTask = Task { [weak self] in
+                    do {
+                        try await Task.sleep(for: .seconds(2))
+                    } catch {
+                        return
+                    }
+                    guard let self else { return }
+                    displayLossTask = nil
+                    displayLossConfirmed = true
+                    refresh()
+                }
+            }
+            return
+        }
 
         Self.log.notice("Displays \(externals.sorted(), privacy: .public) are gone (active: \(active.sorted(), privacy: .public)); turning built-in display \(builtIn, privacy: .public) back on")
         enableBuiltInDisplay(builtIn)
+    }
+
+    private func resetDisplayLoss() {
+        displayLossTask?.cancel()
+        displayLossTask = nil
+        displayLossConfirmed = false
     }
 
     /// Runs `refresh()` every couple of seconds while the built-in display is off.
