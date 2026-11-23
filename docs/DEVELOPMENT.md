@@ -75,3 +75,9 @@ defaults read com.dnafication.GoDark
 ## Testing
 
 There's no test target. Display behaviour can only be checked on real hardware: toggle displays, and plug and unplug monitors while one is off.
+
+To check sleep recovery, turn off the built-in display with an external monitor connected, let
+the displays and the Mac sleep, then wake them. The built-in display should stay off without a
+CoreGraphics error. Also unplug the external monitor while asleep and wake the Mac: after the
+display configuration settles, the built-in display should turn back on. Check ordinary
+hot-unplug with the Mac awake as well.
