@@ -10,6 +10,7 @@ import AppKit
 import CoreGraphics
 import IOKit
 import os
+import Pow
 
 // MARK: - Private CoreGraphics API
 
@@ -57,7 +58,21 @@ enum DisplayError: LocalizedError {
 @Observable
 final class DisplayManager {
     private(set) var displays: [ManagedDisplay] = []
-    var errorMessage: String?
+    var errorMessage: String? {
+        didSet {
+            errorClearTask?.cancel()
+            guard errorMessage != nil else { return }
+            errorClearTask = Task { [weak self] in
+                try? await Task.sleep(for: Self.errorLifetime)
+                guard !Task.isCancelled else { return }
+                self?.errorMessage = nil
+            }
+        }
+    }
+
+    /// How long an error stays in the footer before it clears itself.
+    private static let errorLifetime: Duration = .seconds(5 * 60)
+    private var errorClearTask: Task<Void, Never>?
 
     /// Disabled displays disappear from `NSScreen`, so remember the names we've seen.
     /// Persisted so a display that is already off at launch still gets its real name.
@@ -470,6 +485,7 @@ struct ContentView: View {
         if let message = manager.errorMessage {
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
+                .changeEffect(.shake(rate: .fast), value: message)
         } else {
             Text("The built-in display turns back on if no other display is active, or when you quit GoDark.")
                 .foregroundStyle(.secondary)
@@ -498,6 +514,8 @@ private struct DisplayRow: View {
                     .font(.title2)
                     .foregroundStyle(display.isEnabled ? Color.accentColor : .secondary)
                     .frame(width: 32)
+                    // A glow as the display switches on; switching off stays quiet.
+                    .changeEffect(.glow(color: .accentColor, radius: 12), value: display.isEnabled, isEnabled: display.isEnabled)
             }
         }
         .toggleStyle(.switch)

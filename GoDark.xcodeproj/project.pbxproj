@@ -6,6 +6,10 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		36116C4130886AC000EF63A5 /* Pow in Frameworks */ = {isa = PBXBuildFile; productRef = 36116C4030886AC000EF63A5 /* Pow */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		36116C2D30886ABB00EF63A5 /* GoDark.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GoDark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -22,6 +26,7 @@
 		36116C2A30886ABB00EF63A5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				36116C4130886AC000EF63A5 /* Pow in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -60,6 +65,9 @@
 				36116C2F30886ABB00EF63A5 /* GoDark */,
 			);
 			name = GoDark;
+			packageProductDependencies = (
+				36116C4030886AC000EF63A5 /* Pow */,
+			);
 			productName = GoDark;
 			productReference = 36116C2D30886ABB00EF63A5 /* GoDark.app */;
 			productType = "com.apple.product-type.application";
@@ -72,7 +80,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2710;
-				LastUpgradeCheck = 2710;
+				LastUpgradeCheck = 2720;
 				TargetAttributes = {
 					36116C2C30886ABB00EF63A5 = {
 						CreatedOnToolsVersion = 27.1;
@@ -88,6 +96,9 @@
 			);
 			mainGroup = 36116C2430886ABB00EF63A5;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				36116C3F30886AC000EF63A5 /* XCRemoteSwiftPackageReference "Pow" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 36116C2E30886ABB00EF63A5 /* Products */;
 			projectDirPath = "";
@@ -149,6 +160,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = H8LSKPQPYN;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -174,6 +186,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -213,6 +226,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = H8LSKPQPYN;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -231,6 +245,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -243,6 +258,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = H8LSKPQPYN;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -275,6 +291,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = H8LSKPQPYN;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -319,6 +336,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		36116C3F30886AC000EF63A5 /* XCRemoteSwiftPackageReference "Pow" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/EmergeTools/Pow";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.5;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		36116C4030886AC000EF63A5 /* Pow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36116C3F30886AC000EF63A5 /* XCRemoteSwiftPackageReference "Pow" */;
+			productName = Pow;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 36116C2530886ABB00EF63A5 /* Project object */;
 	validationLevel = 1;
