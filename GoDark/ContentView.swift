@@ -462,7 +462,7 @@ struct ContentView: View {
                 Form {
                     Section {
                         ForEach(manager.displays) { display in
-                            DisplayRow(display: display)
+                            DisplayRow(display: display, shortcut: shortcutNumber(for: display))
                         }
                     } header: {
                         Text("Displays")
@@ -478,6 +478,12 @@ struct ContentView: View {
         }
         .frame(width: 400)
         .animation(.default, value: manager.errorMessage)
+    }
+
+    /// The number in the display's ⌃⇧ shortcut, matching its position in the list.
+    private func shortcutNumber(for display: ManagedDisplay) -> Int? {
+        guard let index = manager.displays.firstIndex(of: display), index < DisplayShortcuts.count else { return nil }
+        return index + 1
     }
 
     @ViewBuilder
@@ -496,6 +502,7 @@ struct ContentView: View {
 private struct DisplayRow: View {
     @Environment(DisplayManager.self) private var manager
     let display: ManagedDisplay
+    let shortcut: Int?
 
     var body: some View {
         Toggle(isOn: Binding(
@@ -527,7 +534,9 @@ private struct DisplayRow: View {
 
     private var subtitle: String {
         let kind = display.isBuiltIn ? "Built-in" : "External"
-        return "\(kind) · \(display.isEnabled ? "On" : "Off")"
+        let state = "\(kind) · \(display.isEnabled ? "On" : "Off")"
+        guard let shortcut else { return state }
+        return "\(state) · \(DisplayShortcuts.modifierSymbols)\(shortcut)"
     }
 }
 

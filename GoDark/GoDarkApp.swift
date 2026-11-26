@@ -30,6 +30,12 @@ struct GoDarkApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Owned here so the display watcher outlives the window.
     let displays = DisplayManager()
+    /// ⌃⇧1 to ⌃⇧9, which work even while the window is closed.
+    private var shortcuts: DisplayShortcuts?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        shortcuts = DisplayShortcuts(manager: displays)
+    }
 
     /// Keep running after the window closes, so the built-in display can still be restored
     /// if the last external monitor is unplugged.

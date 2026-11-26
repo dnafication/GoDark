@@ -15,10 +15,11 @@ GoDark is a small macOS SwiftUI app that turns individual displays (built-in and
 
 ## Architecture
 
-Everything lives in two files:
+Everything lives in three files:
 
 - `GoDark/ContentView.swift`: the private CoreGraphics declarations, the `DisplayManager` model and the SwiftUI views.
 - `GoDark/GoDarkApp.swift`: the app's scene setup and its `AppDelegate`.
+- `GoDark/DisplayShortcuts.swift`: system-wide ⌃⇧1–⌃⇧9 shortcuts that toggle displays by their position in the list. They use Carbon `RegisterEventHotKey`, which works in the background and in the sandbox without Accessibility permission. `AppDelegate` creates them at launch.
 
 ### Private API
 

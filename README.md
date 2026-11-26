@@ -16,6 +16,7 @@
 - **Really off, not just dimmed.** A disabled display is removed from the desktop, so windows, the Dock and the menu bar move to your other screens.
 - **Built-in display safety net.** If the built-in display is off when your last external monitor is unplugged, GoDark turns it back on so you're never left without a screen.
 - **Nothing is permanent.** Changes last only for the current session, so logging out or restarting turns every display back on. Quitting GoDark also turns the built-in display back on.
+- **Keyboard shortcuts.** Press ⌃⇧1 to ⌃⇧9 from any app to toggle the displays, numbered in the order GoDark lists them.
 - **Remembers display names**, even while a display is off and macOS no longer reports it.
 
 ## Requirements
@@ -27,6 +28,7 @@
 
 1. Launch GoDark.
 2. Turn off the switch next to a display to disable it, and turn it on to bring the display back.
+   Or press ⌃⇧ and the display's number (shown under its name), even while GoDark is in the background.
 3. You can close the window and GoDark keeps running so the safety net stays active. Click its Dock icon to open the window again.
 
 GoDark won't let you turn off your last active display.
